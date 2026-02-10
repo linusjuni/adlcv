@@ -9,7 +9,7 @@ import tqdm
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from vit import ViT
+from .vit import ViT
 
 def set_seed(seed=1):
     random.seed(seed)
@@ -60,12 +60,12 @@ def prepare_dataloaders(batch_size, classes=[3, 7]):
     return trainloader, testloader, trainset, testset
 
 
-def main(image_size=(32,32), patch_size=(4,4), channels=3, 
+def main(image_size=(32,32), patch_size=(4,4), channels=3,
          embed_dim=128, num_heads=4, num_layers=4, num_classes=2,
-         pos_enc='learnable', pool='cls', dropout=0.3, fc_dim=None, 
+         pos_enc='learnable', pool='cls', dropout=0.3, fc_dim=None,
          num_epochs=20, batch_size=16, lr=1e-4, warmup_steps=625,
-         weight_decay=1e-3, gradient_clipping=1
-         
+         weight_decay=1e-3, gradient_clipping=1,
+         model_save_path='model.pth'
     ):
 
     loss_function = nn.CrossEntropyLoss()
@@ -86,6 +86,7 @@ def main(image_size=(32,32), patch_size=(4,4), channels=3,
 
     # training loop
     best_val_loss = 1e10
+    epoch_metrics = []
     for e in range(num_epochs):
         print(f'\n epoch {e}')
         model.train()
@@ -123,8 +124,23 @@ def main(image_size=(32,32), patch_size=(4,4), channels=3,
             val_loss /= len(test_iter)
             print(f'-- train loss {train_loss:.3f} -- validation accuracy {acc:.3f} -- validation loss: {val_loss:.3f}')
             if val_loss <= best_val_loss:
-                torch.save(model.state_dict(), 'model.pth')
+                torch.save(model.state_dict(), model_save_path)
                 best_val_loss = val_loss
+
+            epoch_metrics.append({
+                'epoch': e,
+                'train_loss': train_loss,
+                'val_loss': val_loss,
+                'val_accuracy': acc
+            })
+
+    return {
+        'final_train_loss': train_loss,
+        'final_val_loss': val_loss,
+        'final_val_accuracy': acc,
+        'best_val_loss': best_val_loss,
+        'epoch_metrics': epoch_metrics
+    }
 
 
 if __name__ == "__main__":

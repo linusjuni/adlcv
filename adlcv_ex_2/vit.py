@@ -105,7 +105,6 @@ class ViT(nn.Module):
 
         if self.pool == 'cls':
             self.cls_token = nn.Parameter(torch.rand(1,1,embed_dim))
-            num_patches += 1
         
         # TASK: Implement patch embedding layer 
         #       Convert imaged to patches and project to the embedding dimension

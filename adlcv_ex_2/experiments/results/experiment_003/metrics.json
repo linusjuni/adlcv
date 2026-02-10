@@ -1,0 +1,25 @@
+{
+  "final_train_loss": 0.6376631139947203,
+  "final_val_loss": 0.754349127175316,
+  "final_val_accuracy": 0.691,
+  "best_val_loss": 0.754349127175316,
+  "epoch_metrics": [
+    {
+      "epoch": 0,
+      "train_loss": 0.6789991528081437,
+      "val_loss": 0.7564163922317444,
+      "val_accuracy": 0.618
+    },
+    {
+      "epoch": 1,
+      "train_loss": 0.6376631139947203,
+      "val_loss": 0.754349127175316,
+      "val_accuracy": 0.691
+    }
+  ],
+  "experiment_id": 3,
+  "experiment_name": "test_pool",
+  "description": "Quick pooling test",
+  "elapsed_time": 11.517306327819824,
+  "timestamp": "2026-02-10T16:38:51.826952"
+}

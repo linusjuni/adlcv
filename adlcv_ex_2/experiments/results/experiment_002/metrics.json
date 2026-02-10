@@ -1,0 +1,25 @@
+{
+  "final_train_loss": 0.6998049028384419,
+  "final_val_loss": 0.7861737793400174,
+  "final_val_accuracy": 0.619,
+  "best_val_loss": 0.6859769239312127,
+  "epoch_metrics": [
+    {
+      "epoch": 0,
+      "train_loss": 0.7507064926167266,
+      "val_loss": 0.6859769239312127,
+      "val_accuracy": 0.595
+    },
+    {
+      "epoch": 1,
+      "train_loss": 0.6998049028384419,
+      "val_loss": 0.7861737793400174,
+      "val_accuracy": 0.619
+    }
+  ],
+  "experiment_id": 2,
+  "experiment_name": "test_pos_enc",
+  "description": "Quick positional encoding test",
+  "elapsed_time": 11.53335976600647,
+  "timestamp": "2026-02-10T16:38:40.296361"
+}

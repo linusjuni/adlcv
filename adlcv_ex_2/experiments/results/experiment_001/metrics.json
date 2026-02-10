@@ -1,0 +1,25 @@
+{
+  "final_train_loss": 0.7056446153515825,
+  "final_val_loss": 0.7839777322988661,
+  "final_val_accuracy": 0.618,
+  "best_val_loss": 0.6768025103069487,
+  "epoch_metrics": [
+    {
+      "epoch": 0,
+      "train_loss": 0.7740168960901875,
+      "val_loss": 0.6768025103069487,
+      "val_accuracy": 0.59
+    },
+    {
+      "epoch": 1,
+      "train_loss": 0.7056446153515825,
+      "val_loss": 0.7839777322988661,
+      "val_accuracy": 0.618
+    }
+  ],
+  "experiment_id": 1,
+  "experiment_name": "test_baseline",
+  "description": "Quick baseline test",
+  "elapsed_time": 38.355623960494995,
+  "timestamp": "2026-02-10T16:38:28.752670"
+}
