@@ -1,5 +1,5 @@
 import torch
-from gpt import AndersenGPT, MaskedAttention
+from .gpt import AndersenGPT, MaskedAttention
 
 
 # Test the modified Attention module (with causal masking)
