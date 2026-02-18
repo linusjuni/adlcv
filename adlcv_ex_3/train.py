@@ -1,3 +1,4 @@
+import csv
 import os
 import random
 
@@ -23,7 +24,7 @@ POS_ENC = "learnable"  # Options: learnable, fixed
 # Training
 START_FROM_PRETRAINED_GPT2_CHECKPOINT = True
 BATCH_SIZE = 3
-NUM_EPOCHS = 5
+NUM_EPOCHS = 10
 LR = 1e-4
 WARMUP_STEPS = 625
 WEIGHT_DECAY = 1e-4
@@ -181,6 +182,11 @@ def main(
 
     best_val_loss = float("inf")
 
+    csv_path = os.path.join(MODEL_SAVE_PATH, "metrics.csv")
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "train_loss", "train_perplexity", "val_loss", "val_perplexity", "learning_rate"])
+
     # Training loop
     for epoch in range(num_epochs):
         print(f"\nEpoch {epoch + 1}/{num_epochs}")
@@ -234,6 +240,18 @@ def main(
         print(
             f"  Validation Loss: {avg_val_loss:.4f} | Perplexity: {np.exp(avg_val_loss):.4f}"
         )
+
+        current_lr = scheduler.get_last_lr()[0]
+        with open(csv_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                epoch + 1,
+                round(avg_train_loss, 6),
+                round(float(np.exp(avg_train_loss)), 4),
+                round(avg_val_loss, 6),
+                round(float(np.exp(avg_val_loss)), 4),
+                round(current_lr, 8),
+            ])
 
         # Save the model with the best validation loss
         if avg_val_loss < best_val_loss:
