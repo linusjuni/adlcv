@@ -1,3 +1,6 @@
+# macOS
+.DS_Store
+
 # Data files
 .data/
 adlcv_ex_2/data
