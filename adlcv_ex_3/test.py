@@ -1,3 +1,4 @@
+import argparse
 import torch
 from .gpt import AndersenGPT
 from .train import (
@@ -12,7 +13,7 @@ from .train import (
 from transformers import AutoTokenizer
 
 
-def generate_text(model, tokenizer, prompt, max_gen_len=500, device="cpu"):
+def generate_text(model, tokenizer, prompt, max_gen_len=500, device="cpu", strategy="sampling", temperature=0.8):
     """
     Given a prompt string, generate a continuation using greedy decoding.
     The prompt is encoded using the pretrained tokenizer.
@@ -31,19 +32,17 @@ def generate_text(model, tokenizer, prompt, max_gen_len=500, device="cpu"):
 
         # Forward pass: get logits for all tokens in the sequence.
         logits = model(input_ids)
-        
+
         # Get the logits for the last token only: shape [batch_size, vocab_size]
         next_token_logits = logits[:, -1, :]
 
         # You will implement two strategies for generating the next token:
-        strategy = "sampling"
         if strategy == "greedy":
             # Greedy: choose the token with highest probability.
             next_token_id = next_token_logits.argmax(dim=-1, keepdim=True)
         elif strategy == "sampling":
             # Multinomial Sampling: Sample from the probability distribution.
             # The temperature parameter controls the randomness of the sampling.
-            temperature = 0.8
             probabilities = torch.softmax(next_token_logits / temperature, dim=-1)
             next_token_id = torch.multinomial(probabilities, num_samples=1)
 
@@ -65,6 +64,14 @@ def generate_text(model, tokenizer, prompt, max_gen_len=500, device="cpu"):
 
 @torch.no_grad()
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--strategy", choices=["greedy", "sampling"], default="sampling")
+    parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--prompt", type=str, default=None)
+    parser.add_argument("--max_gen_len", type=int, default=500)
+    parser.add_argument("--output", type=str, default=None)
+    args = parser.parse_args()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading model on {device} ...")
 
@@ -93,6 +100,22 @@ def main():
     model.eval()
     print("Model loaded successfully.\n")
 
+    if args.prompt is not None:
+        generated_text = generate_text(
+            model, tokenizer, args.prompt,
+            max_gen_len=args.max_gen_len,
+            device=device,
+            strategy=args.strategy,
+            temperature=args.temperature,
+        )
+        print("\n--- Generated Text ---")
+        print(generated_text)
+        print("----------------------\n")
+        if args.output:
+            with open(args.output, "w") as f:
+                f.write(generated_text)
+        return
+
     print("Enter a prompt and the model will generate a continuation.")
     print("Type 'quit' or 'exit' to stop.\n")
     while True:
@@ -100,7 +123,11 @@ def main():
         if prompt.lower() in ["quit", "exit"]:
             break
         generated_text = generate_text(
-            model, tokenizer, prompt, max_gen_len=500, device=device
+            model, tokenizer, prompt,
+            max_gen_len=args.max_gen_len,
+            device=device,
+            strategy=args.strategy,
+            temperature=args.temperature,
         )
         print("\n--- Generated Text ---")
         print(generated_text)
