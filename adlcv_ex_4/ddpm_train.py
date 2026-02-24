@@ -4,13 +4,14 @@ import os
 from PIL import Image
 import random
 import torch
+from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from tqdm import tqdm
 from torch import optim
 import logging
-from ddpm import Diffusion
-from model import UNet
+from .ddpm import Diffusion
+from .model import UNet
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s: %(message)s",
@@ -46,7 +47,7 @@ def save_images(images, path, show=True, title=None, nrow=10):
 def prepare_dataloader(batch_size):
     import torchvision.transforms as transforms
     from torch.utils.data import DataLoader
-    from dataset.sprites_dataset import SpritesDataset
+    from .dataset.sprites_dataset import SpritesDataset
     transform = transforms.Compose([
     transforms.ToTensor(),                # from [0,255] to range [0.0,1.0]
     transforms.Normalize((0.5,), (0.5,))  # range [-1,1]
@@ -73,7 +74,7 @@ def train(device='cpu', T=500, img_size=16, input_channels=3, channels=32, time_
     diffusion = Diffusion(img_size=img_size, T=T, beta_start=1e-4, beta_end=0.02, device=device)
 
     optimizer = optim.AdamW(model.parameters(), lr=lr)
-    mse = ... # use MSE loss 
+    mse = nn.MSELoss()
     
     logger = SummaryWriter(os.path.join("runs", experiment_name))
     l = len(dataloader)
@@ -87,9 +88,9 @@ def train(device='cpu', T=500, img_size=16, input_channels=3, channels=32, time_
 
             # TASK 4: implement the training loop
             t = diffusion.sample_timesteps(images.shape[0]).to(device) # line 3 from the Training algorithm
-            x_t, noise = ... # inject noise to the images (forward process), HINT: use q_sample
-            predicted_noise = ... # predict noise of x_t using the UNet
-            loss = ... # loss between noise and predicted noise
+            x_t, noise = diffusion.q_sample(images, t)
+            predicted_noise = model(x_t, t)
+            loss = mse(noise, predicted_noise)
 
             
             optimizer.zero_grad()

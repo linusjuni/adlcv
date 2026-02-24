@@ -1,15 +1,18 @@
+import os
 import numpy as np
 import random
 import torch
 from torch.utils.data import Dataset
-from torchvision import transforms 
+from torchvision import transforms
 from .helpers import set_seed
+
+_DEFAULT_IMG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'sprites.npy')
 
 # Dataset from: https://github.com/Ryota-Kawamura/How-Diffusion-Models-Work
 class SpritesDataset(Dataset):
-    def __init__(self, 
-                 transform, 
-                 img_file='./data/sprites.npy',
+    def __init__(self,
+                 transform,
+                 img_file=_DEFAULT_IMG_FILE,
                  num_samples=40000,
                  seed=1
     ):
