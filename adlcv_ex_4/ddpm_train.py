@@ -21,7 +21,7 @@ logging.basicConfig(
 
 
 SEED = 1
-DATASET_SIZE = 40000
+DATASET_SIZE = None  # set to an int (e.g. 40000) to subsample
 
 def set_seed(seed=SEED):
     random.seed(seed)
@@ -44,6 +44,21 @@ def save_images(images, path, show=True, title=None, nrow=10):
         plt.show()
     plt.close()
 
+def save_images_hires(images, path, n=8, scale=16):
+    """Save n individual images upscaled by scale factor (nearest-neighbor for pixel art)."""
+    images = images[:n]
+    fig, axes = plt.subplots(1, n, figsize=(n * 2, 2))
+    for ax, img in zip(axes, images):
+        ndarr = img.permute(1, 2, 0).to('cpu').numpy()
+        pil_img = Image.fromarray(ndarr).resize(
+            (ndarr.shape[1] * scale, ndarr.shape[0] * scale), Image.NEAREST
+        )
+        ax.imshow(pil_img)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.savefig(path, bbox_inches='tight', pad_inches=0.1)
+    plt.close()
+
 def prepare_dataloader(batch_size):
     import torchvision.transforms as transforms
     from torch.utils.data import DataLoader
@@ -57,11 +72,13 @@ def prepare_dataloader(batch_size):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     return dataloader
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def create_result_folders(experiment_name):
-    os.makedirs("models", exist_ok=True)
-    os.makedirs("results", exist_ok=True)
-    os.makedirs(os.path.join("models", experiment_name), exist_ok=True)
-    os.makedirs(os.path.join("results", experiment_name), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "models"), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "results"), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "models", experiment_name), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "results", experiment_name), exist_ok=True)
 
 def train(device='cpu', T=500, img_size=16, input_channels=3, channels=32, time_dim=256,
           batch_size=100, lr=1e-3, num_epochs=30, experiment_name="ddpm", show=False):
@@ -76,7 +93,7 @@ def train(device='cpu', T=500, img_size=16, input_channels=3, channels=32, time_
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     mse = nn.MSELoss()
     
-    logger = SummaryWriter(os.path.join("runs", experiment_name))
+    logger = SummaryWriter(os.path.join(BASE_DIR, "runs", experiment_name))
     l = len(dataloader)
 
     for epoch in range(1, num_epochs + 1):
@@ -102,9 +119,10 @@ def train(device='cpu', T=500, img_size=16, input_channels=3, channels=32, time_
             logger.add_scalar("MSE", loss.item(), global_step=epoch * l + i)
 
         sampled_images = diffusion.p_sample_loop(model, batch_size=images.shape[0])
-        save_images(images=sampled_images, path=os.path.join("results", experiment_name, f"{epoch}.jpg"),
+        save_images(images=sampled_images, path=os.path.join(BASE_DIR, "results", experiment_name, f"{epoch}.jpg"),
                     show=show, title=f'Epoch {epoch}')
-        torch.save(model.state_dict(), os.path.join("models", experiment_name, f"weights-{epoch}.pt"))
+        save_images_hires(images=sampled_images, path=os.path.join(BASE_DIR, "results", experiment_name, f"{epoch}_hires.jpg"))
+        torch.save(model.state_dict(), os.path.join(BASE_DIR, "models", experiment_name, f"weights-{epoch}.pt"))
 
 
 def main():
