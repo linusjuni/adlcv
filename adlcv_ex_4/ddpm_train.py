@@ -9,11 +9,15 @@ import torchvision
 from tqdm import tqdm
 from torch import optim
 import logging
-
-logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
-
 from ddpm import Diffusion
 from model import UNet
+
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s: %(message)s",
+    level=logging.INFO,
+    datefmt="%I:%M:%S",
+)
+
 
 SEED = 1
 DATASET_SIZE = 40000
