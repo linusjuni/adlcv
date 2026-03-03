@@ -176,7 +176,33 @@ class UNet(nn.Module):
 class Classifier(nn.Module):
     def __init__(self, img_size=16, c_in=3, labels=5, time_dim=256, device="cuda", channels=32):
         super().__init__()
-        pass
+        self.device = device
+        self.time_dim = time_dim
+
+        self.inc = DoubleConv(c_in, channels)
+        self.down1 = Down(channels, channels*2, emb_dim=time_dim)
+        self.sa1 = SelfAttention(channels*2, img_size//2)
+        self.down2 = Down(channels*2, channels*4, emb_dim=time_dim)
+        self.sa2 = SelfAttention(channels*4, img_size//4)
+        self.down3 = Down(channels*4, channels*4, emb_dim=time_dim)
+        self.sa3 = SelfAttention(channels*4, img_size//8)
+
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(channels*4, labels)
 
     def forward(self, x, t):
-        return
+        t = t.unsqueeze(-1).type(torch.float)
+        t = pos_encoding(t, self.time_dim, self.device)
+
+        x1 = self.inc(x)
+        x2 = self.down1(x1, t)
+        x2 = self.sa1(x2)
+        x3 = self.down2(x2, t)
+        x3 = self.sa2(x3)
+        x4 = self.down3(x3, t)
+        x4 = self.sa3(x4)
+
+        x = self.pool(x4)
+        x = self.flatten(x)
+        return self.fc(x)

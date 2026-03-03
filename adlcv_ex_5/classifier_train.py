@@ -52,8 +52,15 @@ def train(device='cpu', T=500, img_size=16, input_channels=3, channels=32, time_
             labels = labels.to(device)
 
             # Do not forget to noise your images !
+            t = diffusion.sample_timesteps(images.shape[0])
+            x_t, _ = diffusion.q_sample(images, t)
 
-            ...
+            logits = model(x_t, t)
+            loss = loss_fn(logits, labels)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
     
     # save your checkpoint in weights/classifier/model.pth
     torch.save(model.state_dict(), os.path.join("weights", exp_name, 'model.pth'))
