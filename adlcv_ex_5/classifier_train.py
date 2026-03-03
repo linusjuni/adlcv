@@ -12,9 +12,9 @@ from torch import optim
 from torch.utils.tensorboard import SummaryWriter
 
 # custom imports
-from ddpm import Diffusion
-from model import Classifier 
-from util import set_seed, prepare_dataloaders
+from .ddpm import Diffusion
+from .model import Classifier 
+from .util import set_seed, prepare_dataloaders
 
 
 EPOCHS = 20

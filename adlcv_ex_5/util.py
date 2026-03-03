@@ -7,7 +7,7 @@ from torchvision import transforms
 
 import numpy as np
 
-from dataset import SpritesDataset
+from .dataset import SpritesDataset
 
 
 SEED = 1
@@ -33,7 +33,7 @@ def prepare_dataloaders(batch_size=100, val_batch_size=32):
     ])
 
     
-    dataset = SpritesDataset(transform, num_samples=DATASET_SIZE, seed=SEED)
+    dataset = SpritesDataset(transform, sfilename='./adlcv_ex_5/data/sprites.npy', lfilename='./adlcv_ex_5/data/labels.npy', num_samples=DATASET_SIZE, seed=SEED)
 
     train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size], generator=torch.Generator().manual_seed(SEED))
 

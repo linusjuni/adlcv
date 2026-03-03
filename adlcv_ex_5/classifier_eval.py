@@ -8,10 +8,10 @@ import torch
 import torch.nn as nn
 
 # custom imports
-from ddpm import Diffusion
-from model import Classifier
-from dataset.helpers import *
-from util import set_seed, prepare_dataloaders
+from .ddpm import Diffusion
+from .model import Classifier
+from .dataset.helpers import *
+from .util import set_seed, prepare_dataloaders
 
 def show_n_forward(imgs, title=None, fig_titles=None, save_path=None): 
     if fig_titles is not None:
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     )
     model.to(device)
     model.eval()
-    model.load_state_dict(torch.load('weights/classifier/model.pth', map_location=device))
+    model.load_state_dict(torch.load('adlcv_ex_5/weights/classifier/model.pth', map_location=device))
 
     # sample time steps
     t = torch.Tensor([0, 50, 100, 150, 200, 300, 499]).long().to(device)
