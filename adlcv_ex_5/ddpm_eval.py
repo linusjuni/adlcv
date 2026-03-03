@@ -53,7 +53,11 @@ def frechet_distance(mu1, sigma1, mu2, sigma2):
     # HINT: https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.sqrtm.html
     # Implement FID score
 
-    fid = ...
+    diff = mu1 - mu2
+    covmean = linalg.sqrtm(sigma1.dot(sigma2))
+    if np.iscomplexobj(covmean):
+        covmean = covmean.real
+    fid = diff.dot(diff) + np.trace(sigma1 + sigma2 - 2.0 * covmean)
 
     return fid
 
