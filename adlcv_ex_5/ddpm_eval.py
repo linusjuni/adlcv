@@ -10,10 +10,10 @@ import torch.nn.functional as F
 import torchvision
 
 # custom imports
-from ddpm import Diffusion
-from model import Classifier, UNet
-from dataset.helpers import *
-from util import set_seed, prepare_dataloaders
+from .ddpm import Diffusion
+from .model import Classifier, UNet
+from .dataset.helpers import *
+from .util import set_seed, prepare_dataloaders
 set_seed()
 
 class VGG(nn.Module):
@@ -73,12 +73,12 @@ if __name__ == '__main__':
     )
     classifier.to(device)
     classifier.eval()
-    classifier.load_state_dict(torch.load('weights/classifier/model.pth', map_location=device))
+    classifier.load_state_dict(torch.load('adlcv_ex_5/weights/classifier/model.pth', map_location=device))
 
     unet_ddpm = UNet(device=device)
     unet_ddpm.eval()
     unet_ddpm.to(device)
-    unet_ddpm.load_state_dict(torch.load('weights/DDPM/model.pth', map_location=device))
+    unet_ddpm.load_state_dict(torch.load('adlcv_ex_5/weights/DDPM/model.pth', map_location=device))
     ddpm_cg.classifier = classifier
 
     ######################################### classifier-free guidance #########################################
@@ -86,12 +86,12 @@ if __name__ == '__main__':
     unet_ddpm_cFg = UNet(num_classes=5, device=device)
     unet_ddpm_cFg.eval()
     unet_ddpm_cFg.to(device)
-    unet_ddpm_cFg.load_state_dict(torch.load('weights/DDPM-cfg/model.pth', map_location=device))
+    unet_ddpm_cFg.load_state_dict(torch.load('adlcv_ex_5/weights/DDPM-cfg/model.pth', map_location=device))
 
     model = VGG()
     model.to(device)
     model.eval()
-    model.load_state_dict(torch.load('weights/vgg-sprites/model.pth', map_location=device))
+    model.load_state_dict(torch.load('adlcv_ex_5/weights/vgg-sprites/model.pth', map_location=device))
     dims = 256 # vgg feature dim
 
     _ ,_, test_loader = prepare_dataloaders(val_batch_size=100)
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
         images = images.to(device)
         original = get_features(model, images)
-        
+
         # classifier guidance
         y = torch.randint(0, 5, (images.shape[0],), device=device)
         cg_images = ddpm_cg.p_sample_loop(unet_ddpm, images.shape[0], y=y, verbose=False)
@@ -129,7 +129,6 @@ if __name__ == '__main__':
         generated_feat_cFg[start_idx:start_idx + original.shape[0]] = cFg_features
 
         start_idx = start_idx + original.shape[0]
-    
 
     mu_original, sigma_original = feature_statistics(original_feat)
     mu_cg, sigma_cg = feature_statistics(generated_feat_cg)
@@ -138,4 +137,4 @@ if __name__ == '__main__':
     fid_cg = frechet_distance(mu_original, sigma_original, mu_cg, sigma_cg)
     fid_cFg = frechet_distance(mu_original, sigma_original, mu_cFg, sigma_cFg)
     print(f'[FID classifier guidance] {fid_cg:.3f}')
-    print(f'[classifier-free guidance] {fid_cFg:.3f}')
+    print(f'[FID classifier-free guidance] {fid_cFg:.3f}')

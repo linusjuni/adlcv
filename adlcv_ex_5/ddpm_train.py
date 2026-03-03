@@ -18,9 +18,9 @@ import argparse
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
-from ddpm import Diffusion
-from model import UNet
-from util import set_seed, prepare_dataloaders, CLASS_LABELS
+from .ddpm import Diffusion
+from .model import UNet
+from .util import set_seed, prepare_dataloaders, CLASS_LABELS
 set_seed()
 
 def save_images(images, path, show=True, title=None, nrow=10):
