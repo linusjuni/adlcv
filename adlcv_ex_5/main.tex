@@ -1,0 +1,73 @@
+\section{Exercise 2.2}
+
+\subsection{Dataset}
+In this part, we use the same Sprites dataset described above, with one addition: each sample is accompanied by a class label stored as a one-hot encoded vector in \texttt{labels.npy}, an array of shape $(51{,}000,\, 5)$. These labels serve a dual role: they supervise the noisy-image classifier trained for classifier guidance, and provide the conditional signal injected into the UNet for classifier-free guidance.
+
+\subsection{Method}
+We build on the DDPM from Exercise 2.1 \cite{ho2020denoisingdiffusionprobabilisticmodels}; UNet architecture and training details are the same.
+
+\paragraph{Classifier Guidance (CG).}
+Following \citet{dhariwal2021diffusionmodelsbeatgans} (Algorithm~1), we train a separate classifier $p_\phi(y \mid x_t, t)$ and guide the reverse process by shifting the predicted posterior mean at each step:
+\[
+    \tilde{\mu}_\theta(x_t, t) = \mu_\theta(x_t, t) + s \cdot \beta_t \,\nabla_{x_t} \log p_\phi(y \mid x_t, t),
+\]
+where $s$ is the guidance scale. Rather than learning $\Sigma_\theta(x_t)$ as in the original paper, we fix the variance to $\Sigma_t = \beta_t \mathbf{I}$, replacing the learned covariance with the constant forward-process noise schedule.
+
+
+The classifier $p_\phi$ shares the encoder structure of the DDPM UNet: three downsampling blocks each followed by a self-attention layer, conditioned on timestep $t$ via sinusoidal positional encodings injected at every block. A global average pooling layer and a linear head produce 5-class logits. The classifier is trained with cross-entropy on noisy images $x_t \sim q(x_t \mid x_0)$ at uniformly sampled timesteps.
+
+\paragraph{Classifier-Free Guidance (cFg).}
+Following \citet{ho2022classifierfreediffusionguidance}, we train a single conditional UNet by injecting the one-hot class label $y$ through a learned two-layer MLP projection added to the sinusoidal time embedding. During training, labels are randomly replaced with a null token $\varnothing$ with probability $p_\text{uncond} = 0.1$, so at the same time training conditional and unconditional generation. At inference, the two predictions are combined as:
+\[
+    \tilde{\epsilon}_\theta(x_t, t, y) = \epsilon_\theta(x_t, t, \varnothing) + s \cdot \bigl(\epsilon_\theta(x_t, t, y) - \epsilon_\theta(x_t, t, \varnothing)\bigr),
+\]
+where $s$ is the guidance scale. This is equivalent to the $(1+w)$ form common in lecture notes under the substitution $w = s - 1$. 
+
+At each reverse step, the unconditional UNet proposes a denoised mean, and the classifier then shifts it in the direction that increases its confidence in the target class $y$ via the gradient $\nabla_{x_t} \log p_\phi(y \mid x_t, t)$. This is repeated across all $T$ steps, continuously guiding the trajectory toward the target class without ever retraining the backbone.
+
+\subsection{Experimental Setup}
+All models are trained on a single NVIDIA A100 GPU via DTU's HPC cluster. Both the DDPM backbone and the cFg model are trained for 30 epochs with AdamW \citep{loshchilov2019decoupledweightdecayregularization} ($\text{lr} = 10^{-3}$, batch size 100); the classifier is trained for 20 epochs with AdamW ($\text{lr} = 10^{-4}$). We use $T = 500$ diffusion steps with a linear noise schedule ($\beta_1 = 10^{-4}$, $\beta_T = 0.02$) and a guidance scale of $s = 1$.
+
+\subsection{Results}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{author-kit-ADLCV/figures/classifier_guidance_samples.png}
+    \caption{Classifier guidance samples, one per class (human, non-human, food, spell, side-facing).}
+    \label{fig:cg_samples}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{author-kit-ADLCV/figures/classifier_free_guidance.png}
+    \caption{Classifier-free guidance samples, one per class. A strong reddish colour bias is visible across all classes.}
+    \label{fig:cfg_samples}
+\end{figure}
+
+\noindent FID \citep{heusel2018ganstrainedtimescaleupdate} measures the Fréchet distance between Gaussians fitted to deep features of real and generated images. What we do in practice is that a pretrained network extracts features from both sets, their means and covariances are estimated, and the Fréchet distance between the two resulting Gaussians is computed. Following the exercise template, we use VGG11 features in place of the standard Inception-v3.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\linewidth]{author-kit-ADLCV/figures/per_t_accuracy.png}
+    \caption{Classifier accuracy vs.\ noise level $t$. Accuracy degrades steadily as $t$ increases, reflecting the difficulty of classifying heavily corrupted images.}
+    \label{fig:per_t_acc}
+\end{figure}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lr}
+    \toprule
+    Method & FID \\
+    \midrule
+    Classifier Guidance       & 210.3 \\
+    Classifier-Free Guidance  & 457.6 \\
+    \bottomrule
+    \end{tabular}
+    \caption{FID scores.}
+    \label{tab:fid}
+\end{table}
+
+\subsection{Analysis}
+CG produces some nice and class-faithful sprites with good colour diversity (\autoref{fig:cg_samples}), reflected in its FID of 210.3 (\autoref{tab:fid}). The cFg model (FID 457.6) shows a reddish-purple colour bias across all classes, visible in \autoref{fig:cfg_samples} and consistently across training epochs. The shapes are otherwise class-recognisable. We suspect this is due to either the model being undertrained (30 epochs) or the class imbalance, where the dominant \texttt{spell} and \texttt{non-human} classes skew the learned colour prior. Training longer or increasing $s$ would help clarify this.
+
+The classifier used in CG provides useful gradients through most of the reverse process, even though its accuracy drops as the noise level increases (\autoref{fig:per_t_acc}).
