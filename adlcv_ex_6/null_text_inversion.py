@@ -124,32 +124,19 @@ def null_text_inversion(start_latents, prompt, guidance_scale=7.5,
                 latent_input, t, encoder_hidden_states=null_text_emb
             ).sample
 
-            # ── TODO 3 ──────────────────────────────────────────────────────────
-            # Compute the CFG-combined noise prediction.
-            # Recall: ε_CFG = ε_uncond + guidance_scale * (ε_text - ε_uncond)
-            # Only noise_pred_uncond carries gradients (noise_pred_text is detached).
-            #
-            # noise_pred = ...
-            # ────────────────────────────────────────────────────────────────────
+            # TODO 3: CFG combination — same formula as always
+            # gradient flows through noise_pred_uncond into null_text_emb
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-            # ── TODO 4 ──────────────────────────────────────────────────────────
-            # Use the scheduler to predict the next (less noisy) latent.
-            # This is a single DDIM backward step from `latents` using `noise_pred`.
-            # Hint: pipe.scheduler.step() returns an object; use .prev_sample.
-            #
-            # z_pred = ...
-            # ────────────────────────────────────────────────────────────────────
+            # TODO 4: one DDIM denoising step using the scheduler
+            # gives us where we'd land from latents using this noise_pred
+            z_pred = pipe.scheduler.step(noise_pred, t, latents).prev_sample
 
-            # ── TODO 5 ──────────────────────────────────────────────────────────
-            # Compute the MSE loss between z_pred and the pivot target,
-            # then run one optimization step.
-            # Steps: compute loss → zero_grad → backward → optimizer step
-            #
-            # loss = ...
-            # optimizer.zero_grad()
-            # loss.backward()
-            # optimizer.step()
-            # ────────────────────────────────────────────────────────────────────
+            # TODO 5: how far are we from the pivot? minimize that distance
+            loss = F.mse_loss(z_pred, pivot)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
         # Save this timestep's optimized null-text and advance the running latent
         all_null_texts.append(null_text_emb.detach().cpu())

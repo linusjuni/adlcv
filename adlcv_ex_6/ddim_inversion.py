@@ -85,20 +85,12 @@ def invert(start_latents, prompt, guidance_scale=3.5, num_inference_steps=80,
         alpha_t      = pipe.scheduler.alphas_cumprod[current_t]
         alpha_t_next = pipe.scheduler.alphas_cumprod[next_t]
 
-        # ── TODO 2 ────────────────────────────────────────────────────────────
-        # Implement the inversion update step.
-        # It is the same formula as DDIM sampling (see ddim_sampling.py TODO 1),
-        # but replace alpha_t_prev with alpha_t_next — because we're moving
-        # *forward* in noise (t → t+1) instead of backward (t → t-1).
-        #
-        # Useful variables:
-        #   latents      : x_t,         shape (1, 4, 64, 64)
-        #   noise_pred   : ε_θ(x_t),   shape (1, 4, 64, 64)
-        #   alpha_t      : α_t,         scalar tensor
-        #   alpha_t_next : α_{t+1},     scalar tensor
-        #
-        # latents = ...
-        # ─────────────────────────────────────────────────────────────────────
+        # Same two steps as DDIM sampling, but stepping forward (t → t+1).
+        # Step 1: recover predicted clean image from current noisy latent
+        predicted_x0 = (latents - (1 - alpha_t).sqrt() * noise_pred) / alpha_t.sqrt()
+
+        # Step 2: blend toward t+1 (more noise) instead of t-1 (less noise)
+        latents = alpha_t_next.sqrt() * predicted_x0 + (1 - alpha_t_next).sqrt() * noise_pred
 
         intermediate_latents.append(latents)
 

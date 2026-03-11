@@ -99,21 +99,13 @@ def sample(prompt, start_step=0, start_latents=None,
         alpha_t      = pipe.scheduler.alphas_cumprod[t.item()]
         alpha_t_prev = pipe.scheduler.alphas_cumprod[prev_t]
 
-        # ── TODO 1 ────────────────────────────────────────────────────────────
-        # Implement the DDIM update step using the formula at the top of this file.
-        # Do NOT use pipe.scheduler.step() — compute it manually.
-        #
-        # Useful variables:
-        #   latents      : x_t,        shape (1, 4, 64, 64)
-        #   noise_pred   : ε_θ(x_t),  shape (1, 4, 64, 64)
-        #   alpha_t      : α_t,        scalar tensor
-        #   alpha_t_prev : α_{t-1},    scalar tensor
-        #
-        # Hint: first recover the predicted clean image x_0 from x_t and ε,
-        #       then project it to x_{t-1}.
-        #
-        # latents = ...
-        # ─────────────────────────────────────────────────────────────────────
+        # Step 1: estimate the clean image x_0 from the current noisy latent.
+        # Rearranging x_t = sqrt(α_t)*x_0 + sqrt(1-α_t)*ε gives:
+        predicted_x0 = (latents - (1 - alpha_t).sqrt() * noise_pred) / alpha_t.sqrt()
+
+        # Step 2: re-blend predicted_x0 and ε using the α values for t-1.
+        # This constructs x_{t-1} using the same formula used during training.
+        latents = alpha_t_prev.sqrt() * predicted_x0 + (1 - alpha_t_prev).sqrt() * noise_pred
 
     # Decode the final latent back to pixel space
     images = pipe.decode_latents(latents)

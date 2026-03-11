@@ -157,24 +157,31 @@ def aggregate_attention_maps(attention_maps, num_heads, res=16):
     -------
     Tensor, shape (num_text_tokens, res, res)
     """
-    # ── TODO ──────────────────────────────────────────────────────────────────
-    # 1. Filter `attention_maps` to keep only layers whose spatial dimension
-    #    matches res*res (i.e. attention_maps[i].shape[1] == res*res).
-    #
-    # 2. For each kept map:
-    #    a. Reshape from (batch*heads, H*W, seq) → (batch, heads, H*W, seq).
-    #       Hint: assume batch=1, so first dim = num_heads.
-    #    b. Average over the heads dimension → (1, H*W, seq).
-    #    c. Reshape H*W → (res, res) → (1, seq, res, res).
-    #
-    # 3. Stack all per-layer maps and average them → (1, seq, res, res).
-    #
-    # 4. Remove the batch dimension and return → (seq, res, res).
-    #
-    # avg_map = ...  # shape: (num_text_tokens, res, res)
-    # return avg_map
-    # ─────────────────────────────────────────────────────────────────────────
-    raise NotImplementedError("Implement aggregate_attention_maps (TODO above)")
+    # Step 1: Keep only maps from layers at the target resolution.
+    # e.g. res=16 → keep maps where H*W == 256
+    filtered = [m for m in attention_maps if m.shape[1] == res * res]
+
+    per_layer = []
+    for m in filtered:
+        # m shape: (num_heads, H*W, 77)  — batch=1 so batch*heads = num_heads
+
+        # Step 2a: treat first dim as (batch=1, heads) explicitly
+        m = m.reshape(1, num_heads, res * res, -1)  # (1, 8, 256, 77)
+
+        # Step 2b: average over heads
+        m = m.mean(dim=1)                            # (1, 256, 77)
+
+        # Step 2c: reshape spatial dim to 2D grid, tokens first
+        m = m.permute(0, 2, 1)                       # (1, 77, 256)
+        m = m.reshape(1, -1, res, res)               # (1, 77, 16, 16)
+
+        per_layer.append(m)
+
+    # Step 3: stack all layer maps and average across them
+    avg_map = torch.stack(per_layer, dim=0).mean(dim=0)  # (1, 77, 16, 16)
+
+    # Step 4: drop the batch dimension
+    return avg_map[0]  # (77, 16, 16)
 
 
 @torch.no_grad()
