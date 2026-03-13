@@ -116,45 +116,90 @@ if __name__ == "__main__":
     from diffusers.utils import load_image
     from ddim_sampling import sample
 
-    NUM_STEPS  = 50
-    START_STEP = 0   # 0 = full re-sampling from z_T (strictest reconstruction test)
 
-    # Load a sample image and encode it to a latent
-    input_image = load_image(
-        "https://images.pexels.com/photos/8306128/pexels-photo-8306128.jpeg"
-    ).resize((512, 512))
-    input_image_prompt = "Photograph of a puppy on the grass"
+def load_and_crop_image(img_url, size=512):
+    # Load image
+    image = load_image(img_url)
+    
+    # Crop to square (1:1) centered
+    width, height = image.size
+    min_dim = min(width, height)
+    left = (width - min_dim) // 2
+    top = (height - min_dim) // 2
+    right = left + min_dim
+    bottom = top + min_dim
+    image = image.crop((left, top, right, bottom))
+    
+    # Resize to target size
+    image = image.resize((size, size), Image.LANCZOS)
+    
+    return image
 
-    with torch.no_grad():
-        latent = pipe.vae.encode(
-            tfms.functional.to_tensor(input_image).unsqueeze(0).to(device) * 2 - 1
+
+if __name__ == "__main__":
+    from torchvision import transforms as tfms
+    from diffusers.utils import load_image
+    from ddim_sampling import sample
+    from io import BytesIO
+    import requests
+    from PIL import Image
+    OUTPUT_FOLDER = "output"
+
+
+    image_captions = {
+        "http://images.cocodataset.org/train2017/000000522418.jpg": "A woman wearing a net on her head cutting a cake.",
+        "http://images.cocodataset.org/train2017/000000184613.jpg": "A child holding a flowered umbrella and petting a yak.",
+        "http://images.cocodataset.org/train2017/000000318219.jpg": "A young boy standing in front of a computer keyboard.",
+        "http://images.cocodataset.org/train2017/000000554625.jpg": "A boy wearing headphones using one computer in a long row of computers.",
+        "http://images.cocodataset.org/train2017/000000574769.jpg": "A woman in a room with a cat.",
+        "http://images.cocodataset.org/train2017/000000060623.jpg": "A young girl inhales with the intent of blowing out a candle.",
+        "http://images.cocodataset.org/train2017/000000309022.jpg": "A commercial stainless kitchen with a pot of food cooking.",
+        "http://images.cocodataset.org/train2017/000000005802.jpg": "Two men wearing aprons working in a commercial-style kitchen.",
+        "http://images.cocodataset.org/train2017/000000222564.jpg": "Two chefs in a restaurant kitchen preparing food.",
+        "http://images.cocodataset.org/train2017/000000118113.jpg": "This is a very dark picture of a room with a shelf.",
+        "http://images.cocodataset.org/train2017/000000193271.jpg": "A kitchen filled with black appliances and lots of counter top space.",
+        "http://images.cocodataset.org/train2017/000000224736.jpg": "A professional kitchen filled with sinks and appliances.",
+        "http://images.cocodataset.org/train2017/000000483108.jpg": "A man on a bicycle riding next to a train.",
+        "http://images.cocodataset.org/train2017/000000403013.jpg": "A narrow kitchen filled with appliances and cooking utensils.",
+        "http://images.cocodataset.org/train2017/000000374628.jpg": "A kitchen with wood floors and lots of furniture.",
+        "http://images.cocodataset.org/train2017/000000328757.jpg": "A woman eating vegetables in front of a stove.",
+        "http://images.cocodataset.org/train2017/000000384213.jpg": "A kitchen is shown with a variety of items on the counters.",
+        "http://images.cocodataset.org/train2017/000000293802.jpg": "A boy performing a kickflip on his skateboard on a city street.",
+        "http://images.cocodataset.org/train2017/000000086408.jpg": "A kitchen with a stove, microwave and refrigerator."
+    }
+
+    for idx, (img_url, caption) in enumerate(image_captions.items()):
+
+        response = requests.get(img_url)
+        input_image = load_and_crop_image(img_url, size=512)
+        input_image_prompt = caption
+
+        NUM_STEPS  = 50
+        START_STEP = 0   # 0 = full re-sampling from z_T (strictest reconstruction test)
+
+        with torch.no_grad():
+            latent = pipe.vae.encode(
+                tfms.functional.to_tensor(input_image).unsqueeze(0).to(device) * 2 - 1
+            )
+        l = vae_scale_factor * latent.latent_dist.sample()
+
+        # Run inversion to get the full noisy latent trajectory
+        inverted_latents = invert(l, input_image_prompt, num_inference_steps=NUM_STEPS)
+        print(f"Inverted latents shape: {inverted_latents.shape}")
+
+        # Decode the most-noisy latent to see what pure noise looks like
+        with torch.no_grad():
+            noisy_decoded = pipe.decode_latents(inverted_latents[-1].unsqueeze(0))
+
+
+        # Reconstruct by sampling from the most-noisy inverted latent
+        reconstructed = sample(
+            input_image_prompt,
+            start_latents=inverted_latents[-(START_STEP + 1)][None],
+            start_step=START_STEP,
+            num_inference_steps=NUM_STEPS,
+            guidance_scale=3.5,
         )
-    l = vae_scale_factor * latent.latent_dist.sample()
 
-    # Run inversion to get the full noisy latent trajectory
-    inverted_latents = invert(l, input_image_prompt, num_inference_steps=NUM_STEPS)
-    print(f"Inverted latents shape: {inverted_latents.shape}")
+        reconstructed[0].save(f"{OUTPUT_FOLDER}/ddim_reconstruction_{idx}.png")
 
-    # Decode the most-noisy latent to see what pure noise looks like
-    with torch.no_grad():
-        noisy_decoded = pipe.decode_latents(inverted_latents[-1].unsqueeze(0))
-    pipe.numpy_to_pil(noisy_decoded)[0].save("ddim_inverted_noisy.png")
-    print("Saved ddim_inverted_noisy.png")
-
-    # Reconstruct by sampling from the most-noisy inverted latent
-    reconstructed = sample(
-        input_image_prompt,
-        start_latents=inverted_latents[-(START_STEP + 1)][None],
-        start_step=START_STEP,
-        num_inference_steps=NUM_STEPS,
-        guidance_scale=3.5,
-    )
-
-    # Save original and reconstruction side by side
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    axes[0].imshow(input_image);        axes[0].set_title("Original");        axes[0].axis("off")
-    axes[1].imshow(reconstructed[0]);   axes[1].set_title("DDIM Reconstruction"); axes[1].axis("off")
-    plt.tight_layout()
-    plt.savefig("ddim_reconstruction.png", dpi=150, bbox_inches="tight")
-    plt.close()
-    print("Saved ddim_reconstruction.png")
