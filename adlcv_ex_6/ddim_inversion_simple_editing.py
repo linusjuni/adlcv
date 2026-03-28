@@ -76,41 +76,21 @@ def edit(input_image, input_image_prompt, edit_prompt,
 if __name__ == "__main__":
     # ── Example 1: Puppy → cat ─────────────────────────────────────────────────
     input_image = load_image(
-        "https://images.pexels.com/photos/8306128/pexels-photo-8306128.jpeg"
+        "me2.png"
     ).resize((512, 512))
 
     print("Running edit: puppy → cat")
     result = edit(
         input_image,
-        input_image_prompt="A puppy on the grass",
-        edit_prompt="A cat on the grass",
+        input_image_prompt="A grumpy student",
+        edit_prompt="A happy studentt",
         num_steps=50,
-        start_step=10,
-        guidance_scale=3.5,
+        start_step=20,
+        guidance_scale=3.3,
     )
-    result.save("edit_puppy_to_cat.png")
-    input_image.save("edit_original.png")
-    print("Saved edit_puppy_to_cat.png and edit_original.png")
+    result.save("output/me/lower_guidanc.png")
 
-    # ── Example 2: Group photo with sunglasses ─────────────────────────────────
-    # Replace the URL below with a path to your own group photo:
-    #   group_image = Image.open("your_group_photo.jpg").resize((512, 512))
-    group_image = load_image(
-        "https://yourURL.com/group_photo.jpg"
-    ).resize((512, 512))
-
-    print("\nRunning edit: group → group with sunglasses")
-    result_group = edit(
-        group_image,
-        input_image_prompt="A group of three men",
-        edit_prompt="A group of three men with sunglasses",
-        num_steps=350,
-        start_step=25,
-        guidance_scale=5.5,
-    )
-    result_group.save("edit_group_sunglasses.png")
-    group_image.save("edit_group_original.png")
-    print("Saved edit_group_sunglasses.png and edit_group_original.png")
+   
 
     # ── Hyperparameter exploration ─────────────────────────────────────────────
     # Try varying these parameters and observe their effect:

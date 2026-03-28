@@ -163,44 +163,88 @@ def null_text_inversion(start_latents, prompt, guidance_scale=7.5,
     # z_T is all_latents[-1]; all_null_texts[i] aligns with sampling step i
     return all_latents[-1], all_null_texts
 
+def load_and_crop_image(img_url, size=512):
+    # Load image
+    image = load_image(img_url)
+    
+    # Crop to square (1:1) centered
+    width, height = image.size
+    min_dim = min(width, height)
+    left = (width - min_dim) // 2
+    top = (height - min_dim) // 2
+    right = left + min_dim
+    bottom = top + min_dim
+    image = image.crop((left, top, right, bottom))
+    
+    # Resize to target size
+    image = image.resize((size, size), Image.LANCZOS)
+    
+    return image
+
 
 if __name__ == "__main__":
     from torchvision import transforms as tfms
     from diffusers.utils import load_image
     from ddim_sampling import sample
+    from io import BytesIO
+    import requests
+    from PIL import Image
+    OUTPUT_FOLDER = "output"
 
-    # Load and encode the input image
-    input_image = load_image(
-        "https://images.pexels.com/photos/8306128/pexels-photo-8306128.jpeg"
-    ).resize((512, 512))
-    input_image_prompt = "Photograph of a puppy on the grass"
 
-    with torch.no_grad():
-        latent = pipe.vae.encode(
-            tfms.functional.to_tensor(input_image).unsqueeze(0).to(device) * 2 - 1
+    image_captions = {
+        "http://images.cocodataset.org/train2017/000000522418.jpg": "A woman wearing a net on her head cutting a cake.",
+        "http://images.cocodataset.org/train2017/000000184613.jpg": "A child holding a flowered umbrella and petting a yak.",
+        "http://images.cocodataset.org/train2017/000000318219.jpg": "A young boy standing in front of a computer keyboard.",
+        "http://images.cocodataset.org/train2017/000000554625.jpg": "A boy wearing headphones using one computer in a long row of computers.",
+        "http://images.cocodataset.org/train2017/000000574769.jpg": "A woman in a room with a cat.",
+        "http://images.cocodataset.org/train2017/000000060623.jpg": "A young girl inhales with the intent of blowing out a candle.",
+        "http://images.cocodataset.org/train2017/000000309022.jpg": "A commercial stainless kitchen with a pot of food cooking.",
+        "http://images.cocodataset.org/train2017/000000005802.jpg": "Two men wearing aprons working in a commercial-style kitchen.",
+        "http://images.cocodataset.org/train2017/000000222564.jpg": "Two chefs in a restaurant kitchen preparing food.",
+        "http://images.cocodataset.org/train2017/000000118113.jpg": "This is a very dark picture of a room with a shelf.",
+        "http://images.cocodataset.org/train2017/000000193271.jpg": "A kitchen filled with black appliances and lots of counter top space.",
+        "http://images.cocodataset.org/train2017/000000224736.jpg": "A professional kitchen filled with sinks and appliances.",
+        "http://images.cocodataset.org/train2017/000000483108.jpg": "A man on a bicycle riding next to a train.",
+        "http://images.cocodataset.org/train2017/000000403013.jpg": "A narrow kitchen filled with appliances and cooking utensils.",
+        "http://images.cocodataset.org/train2017/000000374628.jpg": "A kitchen with wood floors and lots of furniture.",
+        "http://images.cocodataset.org/train2017/000000328757.jpg": "A woman eating vegetables in front of a stove.",
+        "http://images.cocodataset.org/train2017/000000384213.jpg": "A kitchen is shown with a variety of items on the counters.",
+        "http://images.cocodataset.org/train2017/000000293802.jpg": "A boy performing a kickflip on his skateboard on a city street.",
+        "http://images.cocodataset.org/train2017/000000086408.jpg": "A kitchen with a stove, microwave and refrigerator."
+    }
+
+    for idx, (img_url, caption) in enumerate(image_captions.items()):
+
+        input_image = load_and_crop_image(img_url, size=512)
+        input_image_prompt = caption
+
+        input_image.save(f"{OUTPUT_FOLDER}/original_{idx}.png")
+        with torch.no_grad():
+            latent = pipe.vae.encode(
+                tfms.functional.to_tensor(input_image).unsqueeze(0).to(device) * 2 - 1
+            )
+        l = vae_scale_factor * latent.latent_dist.sample()
+
+        NUM_STEPS = 50
+        print("running inversion")
+        # Run Null-Text Inversion
+        z_T, all_null_texts = null_text_inversion(
+            l, input_image_prompt,
+            guidance_scale=7.5,
+            num_inference_steps=NUM_STEPS,
+            num_opt_steps=10,
+            lr=1e-2,
         )
-    l = vae_scale_factor * latent.latent_dist.sample()
+        print(f"z_T shape: {z_T.shape}, num null texts: {len(all_null_texts)}")
 
-    NUM_STEPS = 50
-
-    # Run Null-Text Inversion
-    z_T, all_null_texts = null_text_inversion(
-        l, input_image_prompt,
-        guidance_scale=7.5,
-        num_inference_steps=NUM_STEPS,
-        num_opt_steps=10,
-        lr=1e-2,
-    )
-    print(f"z_T shape: {z_T.shape}, num null texts: {len(all_null_texts)}")
-
-    # Reconstruct the image using the optimized null texts
-    reconstructed = sample(
-        input_image_prompt,
-        start_latents=z_T.to(device),
-        guidance_scale=7.5,
-        num_inference_steps=NUM_STEPS,
-        null_texts=all_null_texts,
-    )
-    reconstructed[0].save("nti_reconstruction.png")
-    input_image.save("nti_original.png")
-    print("Saved nti_reconstruction.png and nti_original.png")
+        # Reconstruct the image using the optimized null texts
+        reconstructed = sample(
+            input_image_prompt,
+            start_latents=z_T.to(device),
+            guidance_scale=7.5,
+            num_inference_steps=NUM_STEPS,
+            null_texts=all_null_texts,
+        )
+        reconstructed[0].save(f"{OUTPUT_FOLDER}/nti_reconstruction_{idx}.png")
+        print("Saved nti_reconstruction.png and nti_original.png")
